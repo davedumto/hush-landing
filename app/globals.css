@@ -55,7 +55,8 @@ img.th-dark{display:none}
 .cta:hover{transform:translateY(-2px)}
 .cta.big{height:58px;padding:0 28px;font-size:17px}
 .cta .appi{width:26px;height:26px;border-radius:7px}
-.nav-launch-link img{height:32px;width:auto;border-radius:6px}
+.nav-launch-link{height:38px;align-items:center;margin-top:20px}
+.nav-launch-link img{height:28px;width:auto;border-radius:6px;display:block}
 :root[data-theme="dark"] .nav-launch-link img{box-shadow:0 0 0 1px rgba(255,255,255,.12)}
 @media (max-width:480px){.tbtn .lb{display:none}.tbtn{padding:0 11px}}
 @media (max-width:700px){.nav-launch-link{display:none}}
