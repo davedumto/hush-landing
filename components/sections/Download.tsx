@@ -9,7 +9,7 @@ export default function Download() {
       </a>
       <span className="mono">macOS 14 or later</span>
       <a
-        className="launch-link"
+        className="launch-link dl-launch-link"
         href="https://www.producthunt.com/products/hush-bfb4bb0f-311f-49ec-b15d-ef2fed4f19e7?embed=true&utm_source=badge-featured&utm_medium=badge&utm_campaign=badge-hush-f3172658-972a-4c00-8ed0-69c876f7d337"
         target="_blank"
         rel="noopener noreferrer"
