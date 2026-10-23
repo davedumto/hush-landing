@@ -287,6 +287,10 @@ img.th-dark{display:none}
 #download{background:var(--tint);text-align:center;padding-block:clamp(100px,13vw,180px) 30px;display:flex;flex-direction:column;align-items:center;gap:26px}
 #download .lock{height:clamp(70px,10vw,130px);width:auto}
 #download .tag{font-family:var(--f-body),var(--f-body-fallback);font-weight:700;font-size:clamp(22px,2.4vw,32px);margin:0;letter-spacing:-.01em}
+#download .launch-link{display:inline-flex;margin-top:4px;opacity:.9;transition:opacity .2s ease,transform .2s ease}
+#download .launch-link:hover{opacity:1;transform:translateY(-1px)}
+#download .launch-link img{display:block;max-width:100%;height:auto;border-radius:10px}
+:root[data-theme="dark"] #download .launch-link img{box-shadow:0 0 0 1px rgba(255,255,255,.12)}
 .foot{background:var(--paper-2);display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;border-top:1px solid var(--rule);padding-block:22px 40px;color:var(--mut);font-size:13px}
 .foot p{margin:0;max-width:70ch}
 .foot b{color:var(--ink)}
