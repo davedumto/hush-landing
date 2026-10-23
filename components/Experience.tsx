@@ -3,6 +3,7 @@
 import { forwardRef, useImperativeHandle, useRef, useState } from "react";
 import AppCard, { type CardState } from "./AppCard";
 import { play } from "@/lib/audio";
+import { isRow4, type Dir } from "@/lib/islandScene";
 
 export type ExperienceNodes = {
   hero: HTMLElement | null;
@@ -19,13 +20,26 @@ export type ExperienceNodes = {
   macEl: HTMLElement | null;
   screenEl: HTMLDivElement | null;
   screenInEl: HTMLDivElement | null;
+  /** island scene: the wrapper the island rides in, the tray, position label, cursor and trail canvas */
+  islWrap: HTMLDivElement | null;
+  dockCard: HTMLDivElement | null;
+  lWhere: HTMLSpanElement | null;
+  lCur: SVGSVGElement | null;
+  lTrail: HTMLCanvasElement | null;
   stageCanvas: HTMLCanvasElement | null;
   sealCanvas: HTMLCanvasElement | null;
 };
 
 export type ExperienceHandle = {
   getNodes: () => ExperienceNodes;
+  /** which of the six island scene steps is showing */
   setLapStep: (n: number) => void;
+  /** set the tray's mode directly, clearing any pending pick (scrolling backward) */
+  setMode: (k: string) => void;
+  /** run a real pick through pick(k, true): ring fills, orange after 0.9 s, tone if sound is on */
+  pickMode: (k: string) => void;
+  /** the tray's opening direction: up or down uses the row of 4 buttons, sideways the 2 x 2 */
+  setTrayDir: (d: Dir) => void;
   setChapStep: (n: number) => void;
   setRulerValue: (db: number) => void;
   setSealReadout: (db: number, label: string) => void;
@@ -52,6 +66,10 @@ const Experience = forwardRef<ExperienceHandle, ExperienceProps>(function Experi
   const screenRef = useRef<HTMLDivElement>(null);
   const screenInRef = useRef<HTMLDivElement>(null);
   const dockCardRef = useRef<HTMLDivElement>(null);
+  const islWrapRef = useRef<HTMLDivElement>(null);
+  const lWhereRef = useRef<HTMLSpanElement>(null);
+  const lCurRef = useRef<SVGSVGElement>(null);
+  const lTrailRef = useRef<HTMLCanvasElement>(null);
   const sealCanvasRef = useRef<HTMLCanvasElement>(null);
   const stageRef = useRef<HTMLCanvasElement>(null);
   const rulerValRef = useRef<HTMLElement>(null);
@@ -62,12 +80,13 @@ const Experience = forwardRef<ExperienceHandle, ExperienceProps>(function Experi
 
   const [cardState, setCardState] = useState<CardState>({ mode: "anc", pending: null, note: "" });
   // S mirrors cardState synchronously (the reference reads/writes its S object
-  // immediately within pick()/setLapStep(), ahead of React's state commit).
+  // immediately within pick() and the scene's mode story, ahead of React's state commit).
   const S = useRef<CardState>({ mode: "anc", pending: null, note: "" });
   const pendingTimeout = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
   const [lapStep, setLapStepState] = useState(0);
   const [chapStep, setChapStepState] = useState(0);
-  const prevLapStep = useRef(0);
+  // the tray first opens at the left edge, toward the right (2 x 2 buttons)
+  const [trayDir, setTrayDirState] = useState<Dir>("right");
 
   function setS(next: CardState) {
     S.current = next;
@@ -80,8 +99,9 @@ const Experience = forwardRef<ExperienceHandle, ExperienceProps>(function Experi
     setS({ ...S.current, pending: k, note: "" });
     pendingTimeout.current = setTimeout(
       () => {
-        setS({ mode: k, pending: null, note: k === "amb" ? "unv" : "" });
-        play(k === "off" ? "off" : k, 0.7);
+        setS({ mode: k, pending: null, note: "" });
+        // there is no TalkThru tone: it plays the Ambient one
+        play(k === "talk" ? "amb" : k, 0.7);
       },
       fast ? 900 : 1200
     );
@@ -103,37 +123,21 @@ const Experience = forwardRef<ExperienceHandle, ExperienceProps>(function Experi
       macEl: macRef.current,
       screenEl: screenRef.current,
       screenInEl: screenInRef.current,
+      islWrap: islWrapRef.current,
+      dockCard: dockCardRef.current,
+      lWhere: lWhereRef.current,
+      lCur: lCurRef.current,
+      lTrail: lTrailRef.current,
       stageCanvas: stageRef.current,
       sealCanvas: sealCanvasRef.current,
     }),
-    setLapStep: (n) => {
-      if (n === prevLapStep.current && n === lapStep) return;
-      const prev = prevLapStep.current;
-      prevLapStep.current = n;
-      setLapStepState(n);
-      const card = dockCardRef.current;
-      const open = n >= 2 && n <= 4;
-      const was = card?.classList.contains("open") ?? false;
-      card?.classList.toggle("open", open);
-      if (open && !was) play("expand", 0.5);
-      if (!open && was && n > 4) play("collapse", 0.5);
-
-      if (n === 3 && prev < 3) {
-        clearTimeout(pendingTimeout.current);
-        setS({ mode: "anc", pending: null, note: "" });
-        pendingTimeout.current = setTimeout(() => pick("amb", true), 350);
-      } else if (n === 3) {
-        clearTimeout(pendingTimeout.current);
-        setS({ mode: "amb", pending: null, note: "unv" });
-      } else if (n === 4 && prev < 4) {
-        clearTimeout(pendingTimeout.current);
-        setS({ mode: "amb", pending: null, note: S.current.note });
-        pendingTimeout.current = setTimeout(() => pick("anc", true), 300);
-      } else if (n < 3) {
-        clearTimeout(pendingTimeout.current);
-        setS({ mode: "anc", pending: null, note: "" });
-      }
+    setLapStep: (n) => setLapStepState(n),
+    setMode: (k) => {
+      clearTimeout(pendingTimeout.current);
+      setS({ mode: k, pending: null, note: "" });
     },
+    pickMode: (k) => pick(k, true),
+    setTrayDir: (d) => setTrayDirState(d),
     setChapStep: (n) => setChapStepState(n),
     setRulerValue: (db) => {
       if (rulerValRef.current) rulerValRef.current.textContent = String(db);
@@ -150,6 +154,7 @@ const Experience = forwardRef<ExperienceHandle, ExperienceProps>(function Experi
     },
   }));
 
+  // island scene copy, UPDATE_GUIDE.md section 7
   const steps = [
     {
       k: "Step 1",
@@ -166,7 +171,8 @@ const Experience = forwardRef<ExperienceHandle, ExperienceProps>(function Experi
       t: "The island",
       h: (
         <>
-          They become a <em>small circle</em> on the edge<span className="o">.</span>
+          They become a <em>small circle</em>
+          <span className="o">.</span>
         </>
       ),
       p: "Your headphones and their battery as a thin orange bar. Nothing else.",
@@ -176,52 +182,43 @@ const Experience = forwardRef<ExperienceHandle, ExperienceProps>(function Experi
       t: "One click",
       h: (
         <>
-          The island opens into <em>the card</em>
+          The island opens into <em>the tray</em>
           <span className="o">.</span>
         </>
       ),
-      p: "Model, battery, connection and the four noise modes in one place.",
+      p: "Pick a mode and the ring fills while hush. waits. Orange only appears once your headphones say yes.",
     },
     {
       k: "Step 4",
-      t: "Pick a mode",
+      t: "Free drag",
       h: (
         <>
-          Your headphones <em>confirm</em> it<span className="o">.</span>
-        </>
-      ),
-      p: "The ring fills while hush. waits. Orange only appears once they say yes.",
-    },
-    {
-      k: "Step 5",
-      t: "Back to quiet",
-      h: (
-        <>
-          ANC, <em>on</em>
+          Now drag it <em>anywhere</em>
           <span className="o">.</span>
         </>
       ),
-      p: "Switch as often as you like. The headphones always have the last word.",
+      p: "Under the notch, on either side, anywhere you like. The tray always opens toward the free space.",
+    },
+    {
+      k: "Step 5",
+      t: "Floating",
+      h: (
+        <>
+          Even in <em>the middle</em>
+          <span className="o">.</span>
+        </>
+      ),
+      p: "It floats too. Wherever it sits, the tray finds the room around it.",
     },
     {
       k: "Step 6",
-      t: "Click away",
-      h: (
-        <>
-          It <em>tucks back</em> in<span className="o">.</span>
-        </>
-      ),
-      p: "Click anywhere else and the card folds back into the island.",
-    },
-    {
-      k: "Step 7",
       t: "Try it",
       h: (
         <>
           Now it lives <em>on this page</em> too<span className="o">.</span>
         </>
       ),
-      p: "Look at the left edge. Click the island for sound, theme and shortcuts.",
+      p: "Drag the island on the edge of this page anywhere. Click it for sound, theme and shortcuts.",
     },
   ];
 
@@ -367,14 +364,16 @@ const Experience = forwardRef<ExperienceHandle, ExperienceProps>(function Experi
       </section>
 
       <section className="scene" id="mac" data-n="03" data-t="The island" aria-label="How it works" ref={macRef}>
-        <div>
+        <div className="mac-top">
           <div className="steps" id="steps">
             {steps.map((s, i) => (
               <div className={`step${i === lapStep ? " on" : ""}`} key={i}>
-                <div className="mono">
-                  {s.k} &nbsp;{s.t}
+                <div>
+                  <div className="mono">
+                    {s.k} &nbsp;{s.t}
+                  </div>
+                  <h2>{s.h}</h2>
                 </div>
-                <h2>{s.h}</h2>
                 <p>{s.p}</p>
               </div>
             ))}
@@ -401,20 +400,56 @@ const Experience = forwardRef<ExperienceHandle, ExperienceProps>(function Experi
                     <span>Sun 18 Oct&nbsp; 9:41</span>
                   </div>
                   <div className="notch" />
-                  <i className="isl-anchor" id="anchor" ref={anchorRef} />
-                  <button
-                    className="island"
-                    id="island"
-                    type="button"
-                    aria-label="JBL Tune 770NC, 82% battery. Open controls"
-                    ref={islandRef}
-                  >
-                    <img alt="" src="/photos/Tune770White-sm.webp" />
-                    <span className="bar">
+                  <div className="win" style={{ left: "9%", top: "16%", width: "44%", height: "58%" }} aria-hidden="true">
+                    <div className="tb">
                       <i />
-                    </span>
-                  </button>
-                  <AppCard state={cardState} onPick={pick} ref={dockCardRef} />
+                      <i />
+                      <i />
+                      <span>Notes</span>
+                    </div>
+                    {["60%", "80%", "72%", "44%", "66%"].map((w, i) => (
+                      <div className="ln" style={{ width: w }} key={i} />
+                    ))}
+                  </div>
+                  <div className="win" style={{ left: "48%", top: "30%", width: "42%", height: "52%" }} aria-hidden="true">
+                    <div className="tb">
+                      <i />
+                      <i />
+                      <i />
+                      <span>Browser</span>
+                    </div>
+                    <div className="ln" style={{ width: "86%", height: 70, borderRadius: 10 }} />
+                    <div className="ln" style={{ width: "70%" }} />
+                    <div className="ln" style={{ width: "58%" }} />
+                  </div>
+                  <canvas id="lTrail" aria-hidden="true" ref={lTrailRef} />
+                  <i className="isl-anchor" id="anchor" ref={anchorRef} />
+                  <div id="islWrap" ref={islWrapRef}>
+                    <button
+                      className="island"
+                      id="island"
+                      type="button"
+                      tabIndex={-1}
+                      aria-label="JBL Tune 770NC, 82% battery"
+                      ref={islandRef}
+                    >
+                      <img alt="" src="/photos/Tune770White-sm.webp" />
+                      <span className="bar">
+                        <i />
+                      </span>
+                    </button>
+                  </div>
+                  <span id="lWhere" aria-hidden="true" ref={lWhereRef}>
+                    Left edge
+                  </span>
+                  <AppCard state={cardState} onPick={pick} row4={isRow4(trayDir)} ref={dockCardRef} />
+                  <svg id="lCur" viewBox="0 0 30 30" aria-hidden="true" ref={lCurRef}>
+                    <path
+                      d="M4 3 L4 24 L9.5 18.8 L13.2 27 L17 25.3 L13.4 17.3 L21 17.3 Z"
+                      strokeWidth="1.6"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
                 </div>
               </div>
             </div>

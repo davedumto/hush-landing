@@ -16,6 +16,9 @@ import Download from "@/components/sections/Download";
 import Footer from "@/components/Footer";
 
 import { clamp, ease, journey, keyframes, lerp, rc, ss } from "@/lib/journey";
+import { traySprings } from "@/lib/springs";
+import { STATIC_P } from "@/lib/islandScene";
+import { createIslandScene } from "@/lib/islandSceneDriver";
 import { Stage3D } from "@/lib/stage3d";
 import { drawSeal, drawKeys, KT, type KeysVelocity } from "@/lib/lines";
 import { play, setBed, setSoundOn, isSoundOn } from "@/lib/audio";
@@ -117,8 +120,10 @@ export default function PageShell() {
 
     // ---------- Experience internal nodes ----------
     const exp = experienceRef.current!;
-    const { hero, gL, gR, gDot, gGap, chapNum, anchor, island, laptopEl, baseEl, lidEl, macEl, screenEl, screenInEl, stageCanvas, sealCanvas } =
-      exp.getNodes();
+    const {
+      hero, gL, gR, gDot, gGap, chapNum, anchor, island, laptopEl, baseEl, lidEl, macEl, screenEl, screenInEl,
+      islWrap, dockCard, lWhere, lCur, lTrail, stageCanvas, sealCanvas,
+    } = exp.getNodes();
 
     const heroEl = hero;
     const navEl = document.getElementById("nav")!;
@@ -129,11 +134,36 @@ export default function PageShell() {
     }
     setNavH();
 
+    // sample the tray's spring curves into real CSS linear() easings; the cubic-bezier
+    // fallbacks already in globals.css cover browsers without linear() support
+    if (CSS.supports("easing", "linear(0,1)")) {
+      const { open, close } = traySprings();
+      document.documentElement.style.setProperty("--sp-open", open);
+      document.documentElement.style.setProperty("--sp-close", close);
+    }
+
     // the laptop screen's inner content is a fixed 1280x800 canvas, scaled down to fit
     function fitScreen() {
       if (screenInEl && screenEl) screenInEl.style.transform = `scale(${screenEl.clientWidth / 1280})`;
     }
     fitScreen();
+
+    // ---------- the island scene (#mac): drag legs, tray stops, mode story, cursor, label, grid, trail ----------
+    const scene =
+      island && islWrap && dockCard && lWhere && lCur && lTrail
+        ? createIslandScene(
+            { wrap: islWrap, island, tray: dockCard, where: lWhere, cursor: lCur, trail: lTrail },
+            {
+              setStep: (n) => exp.setLapStep(n),
+              setMode: (k) => exp.setMode(k),
+              pickMode: (k) => exp.pickMode(k),
+              setTrayDir: (d) => exp.setTrayDir(d),
+              play,
+            }
+          )
+        : null;
+    // the tray's layout size, read once here (and on resize / fonts ready) so tick() never reads it after a write
+    scene?.measure();
 
     let heroP = 0, chapP = 0, lapP = 0, sealP = 0;
     // gsap/ScrollTrigger are bundled module imports here (unlike the reference's CDN
@@ -192,7 +222,7 @@ export default function PageShell() {
       ScrollTrigger.defaults({ anticipatePin: 1 });
       ST.hero = ScrollTrigger.create({ trigger: "#hero", start, end: "+=150%", pin: true, onUpdate: (s) => (heroP = s.progress) });
       ST.chap = ScrollTrigger.create({ trigger: "#chapters", start, end: "+=240%", pin: true, onUpdate: (s) => (chapP = s.progress) });
-      ST.mac = ScrollTrigger.create({ trigger: "#mac", start, end: "+=460%", pin: true, onUpdate: (s) => (lapP = s.progress) });
+      ST.mac = ScrollTrigger.create({ trigger: "#mac", start, end: "+=720%", pin: true, onUpdate: (s) => (lapP = s.progress) });
       ST.seal = ScrollTrigger.create({
         trigger: "#seal",
         start,
@@ -217,8 +247,9 @@ export default function PageShell() {
       });
       ScrollTrigger.addEventListener("refreshInit", setNavH);
     } else {
+      // no pins: the scene holds still with the tray open at the left edge
       sealP = 1;
-      lapP = 0.62;
+      lapP = STATIC_P;
       chapP = 0;
     }
 
@@ -263,7 +294,6 @@ export default function PageShell() {
     let cur: { x: number; y: number; h: number; f: number; o: number } | null = null;
     let popped = false;
     let lastPc = -1;
-    let lastLap = -1;
     let gx = 0;
     let lidOpen = 0;
 
@@ -298,6 +328,7 @@ export default function PageShell() {
       const frac = docH > 0 ? clamp(y / docH, 0, 1) : 0;
       const sealVis = sealCanvas ? inView(sealCanvas) : false;
       const keysVis = keysCanvas ? inView(keysCanvas) : false;
+      scene?.read();
 
       let j: ReturnType<typeof doJourney> | null = null;
       let macTop = 0, gapW = 0, flight = 0;
@@ -347,15 +378,7 @@ export default function PageShell() {
         if (lidEl) lidEl.style.transform = `rotateX(${(1 - lidOpen) * -88}deg)`;
         if (laptopEl) laptopEl.style.transform = `scale(${0.92 + lidOpen * 0.08}) translate3d(0,${(1 - lidOpen) * 24}px,0)`;
 
-        const st = lapP < 0.1 ? 0 : lapP < 0.26 ? 1 : lapP < 0.4 ? 2 : lapP < 0.56 ? 3 : lapP < 0.7 ? 4 : lapP < 0.84 ? 5 : 6;
-        if (st !== lastLap) {
-          lastLap = st;
-          exp.setLapStep(st);
-        }
-        if (island) {
-          island.classList.toggle("on", (lapP > 0.125 && lapP < 0.26) || ((st === 5 || st === 6) && flight <= 0));
-          island.classList.toggle("pulse", lapP > 0.14 && lapP < 0.26);
-        }
+        scene?.write(lapP, flight, now, dt);
 
         const flyer = pageIsland.flyer.current;
         if (A && P && flyer) {
@@ -383,6 +406,7 @@ export default function PageShell() {
         frameStage?.draw({ x: cur.x, y: cur.y + bob, h: cur.h, f: cur.f, o: cur.o });
       } else if (!PIN) {
         pageIsland.pisl.current?.classList.remove("hide");
+        scene?.write(lapP, 0, now, dt);
         const hr = heroEl!.getBoundingClientRect();
         const g = rc(gGap!);
         frameStage?.draw({ x: g.x, y: g.y, h: Math.min(hr.height * 0.5, window.innerWidth * 0.36), f: 0, o: hr.bottom > 0 ? 1 : 0 });
@@ -418,10 +442,12 @@ export default function PageShell() {
       if (sealCanvas) sg = sizeCan(sealCanvas);
       fitScreen();
       setNavH();
+      scene?.measure();
     }
     window.addEventListener("resize", onResize);
 
     document.fonts?.ready.then(() => {
+      scene?.measure();
       if (PIN) ScrollTrigger.refresh();
     });
 

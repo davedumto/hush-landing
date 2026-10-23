@@ -83,14 +83,14 @@ export function keyframes(inputs: KeyframeInputs): Keyframe[] {
     [c.end, () => chapPos(280, inputs.innerWidth, inputs.innerHeight, inputs.navH)],
     [m.start, () => screenPos(288, laptopEl, baseEl)],
     [
-      m.start + Lm * 0.12,
+      m.start + Lm * 0.055,
       () => {
         const a = rc(anchor);
         return { x: a.x, y: a.y - a.h * 0.06, h: a.h * 0.5, f: 296, o: 1 };
       },
     ],
     [
-      m.start + Lm * 0.16,
+      m.start + Lm * 0.08,
       () => {
         const a = rc(anchor);
         return { x: a.x, y: a.y - a.h * 0.06, h: a.h * 0.5, f: 296, o: 0 };

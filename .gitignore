@@ -44,4 +44,6 @@ next-env.d.ts
 # internal reference material, not part of the shipped app
 /hush-landing-kit/
 /landingpage.md
+/hush-update-kit/
+/hush-feature-media/
 .neon

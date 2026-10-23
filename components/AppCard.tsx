@@ -44,11 +44,6 @@ export function ctrlMarkup(S: CardState, onPick: (k: string) => void) {
             <span className="cdot ring pulse" />
             <b>{NAMES[S.pending]}</b>waiting for headphones…
           </>
-        ) : S.note === "unv" ? (
-          <>
-            <span className="cdot ring" />
-            <b>{NAMES[S.mode]}</b>(unverified)
-          </>
         ) : (
           <>
             <span className="cdot" />
@@ -63,12 +58,14 @@ export function ctrlMarkup(S: CardState, onPick: (k: string) => void) {
 type AppCardProps = {
   state: CardState;
   onPick: (k: string) => void;
+  /** true when the tray opens up or down (row of 4 buttons); false/undefined for sideways (2x2) */
+  row4?: boolean;
 };
 
-const AppCard = forwardRef<HTMLDivElement, AppCardProps>(function AppCard({ state, onPick }, ref) {
+const AppCard = forwardRef<HTMLDivElement, AppCardProps>(function AppCard({ state, onPick, row4 }, ref) {
   return (
     <div className="dock-card" id="dockCard" ref={ref}>
-      <div className="card">
+      <div className={`card${row4 ? " row4" : ""}`}>
         <div className="cpanel">
           <div className="ctab">
             <img src="/brand/hush-mark-white.svg" alt="" />
