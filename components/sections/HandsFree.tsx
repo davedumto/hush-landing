@@ -1,6 +1,6 @@
 export default function HandsFree() {
   return (
-    <section className="band wrap" id="why" data-n="06" data-t="Hands free" aria-label="Why hush.">
+    <section className="band wrap" id="why" data-n="07" data-t="Hands free" aria-label="Why hush.">
       <div className="head">
         <div>
           <div className="mono">Why hush.</div>

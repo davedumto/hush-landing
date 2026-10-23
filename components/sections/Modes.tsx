@@ -14,7 +14,7 @@ const MODES = [
   { k: "off", icon: "i-off", word: "Off", bold: "Everything comes in.", rest: "No noise control. The room, as it is." },
   { k: "anc", icon: "i-anc", word: "ANC", bold: "The world goes quiet.", rest: "Active noise cancelling, for focus, flights and trains." },
   { k: "amb", icon: "i-amb", word: "Ambient", bold: "Hear what matters.", rest: "Let the room back in without taking them off." },
-  { k: "talk", icon: "i-talk", word: "TalkThru", bold: "Talk without pausing.", rest: "Keep the conversation going without taking them off." },
+  { k: "talk", icon: "i-talk", word: "TalkThru", bold: "Talk without taking them off.", rest: "The music drops and voices come through, so a quick chat never needs a pause." },
 ];
 
 export default function Modes({ refs, onPickKey, onKeySoundOn, soundOn }: ModesProps) {
@@ -26,7 +26,7 @@ export default function Modes({ refs, onPickKey, onKeySoundOn, soundOn }: ModesP
   }
 
   return (
-    <section className="band wrap" id="modes" data-n="05" data-t="The modes" aria-label="Modes">
+    <section className="band wrap" id="modes" data-n="06" data-t="The modes" aria-label="Modes">
       <div className="head">
         <div>
           <div className="mono">Four modes</div>

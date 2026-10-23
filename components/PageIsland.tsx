@@ -82,11 +82,11 @@ export default function PageIsland({ refs, onToggleMenu, onSetSound, onSetTheme,
             <a className="row" href="#seal">
               The quiet<span className="ico i-down" style={{ transform: "rotate(-90deg)", width: 14, height: 14 }} />
             </a>
+            <a className="row" href="#sound">
+              More of your Tune<span className="ico i-down" style={{ transform: "rotate(-90deg)", width: 14, height: 14 }} />
+            </a>
             <a className="row" href="#why">
               Hands free<span className="ico i-down" style={{ transform: "rotate(-90deg)", width: 14, height: 14 }} />
-            </a>
-            <a className="row" href="#modes">
-              The modes<span className="ico i-down" style={{ transform: "rotate(-90deg)", width: 14, height: 14 }} />
             </a>
             <a className="row" href="https://github.com/davedumto/Hush/releases" target="_blank" rel="noopener noreferrer">
               Download<span className="ico i-down" style={{ transform: "rotate(-90deg)", width: 14, height: 14 }} />

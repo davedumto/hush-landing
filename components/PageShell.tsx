@@ -10,7 +10,7 @@ import { useTheme } from "next-themes";
 import Nav from "@/components/Nav";
 import Experience, { type ExperienceHandle } from "@/components/Experience";
 import PageIsland from "@/components/PageIsland";
-import Modes from "@/components/sections/Modes";
+import MoreOfYourTune from "@/components/sections/MoreOfYourTune";
 import HandsFree from "@/components/sections/HandsFree";
 import Download from "@/components/sections/Download";
 import Footer from "@/components/Footer";
@@ -21,9 +21,9 @@ import { STATIC_P } from "@/lib/islandScene";
 import { createIslandScene } from "@/lib/islandSceneDriver";
 import { createPageIsland, type PageIslandDriver } from "@/lib/pageIslandDriver";
 import { Stage3D } from "@/lib/stage3d";
-import { drawSeal, drawKeys, KT, type KeysVelocity } from "@/lib/lines";
+import { drawSeal } from "@/lib/lines";
 import { play, setBed, setSoundOn, isSoundOn } from "@/lib/audio";
-import type { MastheadRefs, ModesRefs, PageIslandRefs } from "@/lib/experienceRefs";
+import type { MastheadRefs, PageIslandRefs } from "@/lib/experienceRefs";
 
 export default function PageShell() {
   const { resolvedTheme, setTheme } = useTheme();
@@ -32,13 +32,6 @@ export default function PageShell() {
   const masthead: MastheadRefs = {
     navSoundBtn: useRef<HTMLButtonElement>(null),
     navSoundLabel: useRef<HTMLSpanElement>(null),
-  };
-
-  // ---------- modes refs ----------
-  const modes: ModesRefs = {
-    keysCanvas: useRef<HTMLCanvasElement>(null),
-    keyhint: useRef<HTMLDivElement>(null),
-    keySoundBtn: useRef<HTMLButtonElement>(null),
   };
 
   // ---------- page island refs ----------
@@ -59,7 +52,6 @@ export default function PageShell() {
 
   const experienceRef = useRef<ExperienceHandle>(null);
   const [soundOnState, setSoundOnState] = useState(false);
-  const ktRef = useRef<KeysVelocity>({ chaos: 0.05, orange: 0.9 });
   // set once the ticker effect mounts; lets click handlers reach into loop-local state
   const updateSealSoundRef = useRef<() => void>(() => {});
 
@@ -266,7 +258,7 @@ export default function PageShell() {
         },
       });
 
-      gsap.utils.toArray<HTMLElement>(".fig, .mcard").forEach((el) =>
+      gsap.utils.toArray<HTMLElement>(".fig, .mcard, .feat .fcard, .feat .fcopy, .alsonew > div").forEach((el) =>
         gsap.from(el, { y: 40, opacity: 0.25, duration: 1.2, ease: "expo.out", scrollTrigger: { trigger: el, start: "top 92%" } })
       );
       ScrollTrigger.create({
@@ -334,8 +326,6 @@ export default function PageShell() {
       return r.bottom > 0 && r.top < window.innerHeight;
     }
 
-    const kv: KeysVelocity = { chaos: 0.05, orange: 0.9 };
-    const keysCanvas = modes.keysCanvas.current;
     function sizeCan(c: HTMLCanvasElement) {
       const d = Math.min(window.devicePixelRatio || 1, 2);
       c.width = c.clientWidth * d;
@@ -344,7 +334,6 @@ export default function PageShell() {
       x.setTransform(d, 0, 0, d, 0, 0);
       return x;
     }
-    let kg = keysCanvas ? sizeCan(keysCanvas) : null;
     let sg = sealCanvas ? sizeCan(sealCanvas) : null;
 
     function tick() {
@@ -359,7 +348,6 @@ export default function PageShell() {
       const docH = document.documentElement.scrollHeight - H;
       const frac = docH > 0 ? clamp(y / docH, 0, 1) : 0;
       const sealVis = sealCanvas ? inView(sealCanvas) : false;
-      const keysVis = keysCanvas ? inView(keysCanvas) : false;
       scene?.read();
 
       let j: ReturnType<typeof doJourney> | null = null;
@@ -458,9 +446,6 @@ export default function PageShell() {
         const { db: sealDb, label: sealLabel } = drawSeal(sg, sealCanvas, RM ? 0 : t, sealP, isDark);
         exp.setSealReadout(sealDb, sealLabel);
       }
-      if (keysVis && kg && keysCanvas) {
-        drawKeys(kg, keysCanvas, RM ? 0 : t, kv, ktRef.current, isDark);
-      }
     }
 
     let raf = 0;
@@ -476,7 +461,6 @@ export default function PageShell() {
 
     function onResize() {
       frameStage?.sizeStage();
-      if (keysCanvas) kg = sizeCan(keysCanvas);
       if (sealCanvas) sg = sizeCan(sealCanvas);
       fitScreen();
       setNavH();
@@ -526,15 +510,7 @@ export default function PageShell() {
       />
       <main>
         <Experience ref={experienceRef} onSoundAskClick={() => applySound(!soundOnState)} />
-        <Modes
-          refs={modes}
-          onPickKey={(k) => {
-            ktRef.current = KT[k] ?? ktRef.current;
-            play(k === "off" ? "off" : k, 0.8);
-          }}
-          onKeySoundOn={() => applySound(true)}
-          soundOn={soundOnState}
-        />
+        <MoreOfYourTune />
         <HandsFree />
         <Download />
       </main>
