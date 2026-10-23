@@ -76,19 +76,26 @@ img.th-dark{display:none}
 #stage{position:fixed;inset:0;width:100%;height:100%;z-index:30;pointer-events:none;filter:var(--stage-filter);will-change:transform;transform:translateZ(0)}
 
 /* ---------- page island ---------- */
-.pisl{position:fixed;left:max(20px,env(safe-area-inset-left,0px));top:50%;z-index:45;width:62px;height:62px;margin-top:-31px;border-radius:50%;border:0;padding:0;cursor:pointer;background:#000;
+.pisl{position:fixed;left:0;top:0;z-index:45;width:62px;height:62px;margin:0;border-radius:50%;border:0;padding:0;cursor:pointer;background:#000;
   box-shadow:inset 0 0 0 2px rgba(255,101,0,.6),0 12px 30px -8px rgba(0,0,0,.55),0 0 26px -8px rgba(255,101,0,.7);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
   transition:transform .5s cubic-bezier(.2,1.3,.3,1),opacity .3s}
-.pisl:hover{transform:scale(1.07)}
-.pisl.hide{opacity:0;transform:scale(.4);pointer-events:none}
+/* the page island is freely placed by lib/pageIslandDriver.ts: x/y in px on --px/--py, never top/left.
+   --ps is its scale (hover 1.07, hidden 0.4, dragging 1.12); the drop settles on the 0.55s spring below,
+   which is its own easing, not the tray's --sp-open/--sp-close */
+#pisl{--ps:1;transform:translate3d(var(--px,20px),var(--py,45vh),0) scale(var(--ps));touch-action:none;cursor:grab;transition:transform .55s cubic-bezier(.2,1.3,.3,1),opacity .3s}
+#pisl:hover{--ps:1.07}
+#pisl.hide{--ps:.4;opacity:0;pointer-events:none}
+#pisl.drag{--ps:1.12;cursor:grabbing;transition:opacity .3s;box-shadow:inset 0 0 0 2px rgba(255,101,0,.9),0 24px 40px -10px rgba(0,0,0,.5),0 0 34px -4px rgba(255,101,0,.9)}
 .pisl img{height:27px;width:auto}
 .pisl .bar,.flyer .bar{width:24px;height:3.5px;border-radius:2px;background:#30343B;overflow:hidden}
 .pisl .bar i,.flyer .bar i{display:block;height:100%;width:82%;background:var(--o);border-radius:2px}
 .flyer{position:fixed;left:0;top:0;width:62px;height:62px;border-radius:50%;background:#000;z-index:46;pointer-events:none;display:none;flex-direction:column;align-items:center;justify-content:center;gap:4px;transform-origin:0 0;
   box-shadow:inset 0 0 0 2px rgba(255,101,0,.6),0 14px 30px -8px rgba(0,0,0,.55),0 0 30px -6px rgba(255,101,0,.8)}
 .flyer img{height:27px}
-.pmenu{position:fixed;left:max(20px,env(safe-area-inset-left,0px));top:50%;z-index:47;width:300px;max-width:calc(100vw - 32px);padding:7px;border-radius:30px;background:#000;color:#fff;transform-origin:0 50%;transform:translateY(-50%) scale(.15);opacity:0;filter:blur(8px);pointer-events:none;transition:transform .28s cubic-bezier(.4,0,.2,1),opacity .18s,filter .2s}
-.pmenu.open{transform:translateY(-50%) scale(1);opacity:1;filter:none;pointer-events:auto;transition:transform .55s cubic-bezier(.2,1.22,.32,1),opacity .2s,filter .3s}
+/* the menu is placed beside the island by the driver (--mx/--my) and grows out of the island's centre (--mo,
+   never --o: that is the brand orange). It opens and closes on the tray's springs, with no blur */
+.pmenu{position:fixed;left:0;top:0;z-index:47;width:300px;max-width:calc(100vw - 32px);padding:7px;border-radius:30px;background:#000;color:#fff;transform-origin:var(--mo,0 50%);transform:translate3d(var(--mx,20px),var(--my,30vh),0) scale(.15);opacity:0;filter:none;pointer-events:none;transition:transform 280ms var(--sp-close),opacity 180ms ease-in}
+.pmenu.open{transform:translate3d(var(--mx,20px),var(--my,30vh),0) scale(1);opacity:1;filter:none;pointer-events:auto;transition:transform 460ms var(--sp-open),opacity 200ms ease-out}
 .pmenu .in{border-radius:24px;padding:18px 16px 14px;background:radial-gradient(120% 80% at 50% 20%,#1E3E62 0%,#0B192C 60%,#03070D 100%);display:flex;flex-direction:column;gap:14px}
 .pmenu .hd img{height:22px}
 .pmenu .lbl{font-family:var(--f-mono),var(--f-mono-fallback);font-size:10px;letter-spacing:.12em;color:rgba(230,236,244,.6)}
@@ -98,7 +105,11 @@ img.th-dark{display:none}
 .pmenu nav{display:flex;flex-direction:column;gap:4px}
 .pmenu a.row{justify-content:space-between;padding:0 14px;height:40px;font-weight:700}
 .pmenu a.row:hover{background:rgba(255,255,255,.08)}
-@media (max-width:899px){.pisl{top:auto;bottom:max(16px,env(safe-area-inset-bottom,0px));margin-top:0;width:52px;height:52px}.pisl img{height:22px}.pisl .bar{width:20px}.pmenu{top:auto;bottom:max(16px,env(safe-area-inset-bottom,0px));transform-origin:0 100%;transform:scale(.15)}.pmenu.open{transform:scale(1)}}
+/* the one time "Drag me anywhere" tip, placed beside the island by the driver */
+.itip{position:fixed;left:0;top:0;z-index:44;pointer-events:none;background:var(--ink);color:var(--paper);font-weight:800;font-size:13px;padding:9px 13px;border-radius:12px;white-space:nowrap;opacity:0;transition:opacity .4s}
+.itip.on{opacity:1}
+/* smaller island on phones; where it sits (16px from the left and bottom by default) is set by the driver */
+@media (max-width:899px){.pisl{width:52px;height:52px}.pisl img{height:22px}.pisl .bar{width:20px}}
 
 /* ---------- pinned scenes ---------- */
 .scene{position:relative;height:calc(100svh - var(--navh));min-height:540px;overflow:hidden}
@@ -270,7 +281,7 @@ img.th-dark{display:none}
 .dock-card.open .chero{--d:110ms}
 .dock-card.open .cname{--d:140ms}
 .dock-card.open #cc,.dock-card.open .cfoot{--d:170ms}
-@media (prefers-reduced-motion: reduce){.dock-card,.dock-card.open,.dock-card *{transition:none!important}}
+@media (prefers-reduced-motion: reduce){.dock-card,.dock-card.open,.dock-card *,.pmenu,.pmenu.open{transition:none!important}}
 
 
 /* seal (always dark) */

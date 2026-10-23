@@ -19,6 +19,7 @@ import { clamp, ease, journey, keyframes, lerp, rc, ss } from "@/lib/journey";
 import { traySprings } from "@/lib/springs";
 import { STATIC_P } from "@/lib/islandScene";
 import { createIslandScene } from "@/lib/islandSceneDriver";
+import { createPageIsland, type PageIslandDriver } from "@/lib/pageIslandDriver";
 import { Stage3D } from "@/lib/stage3d";
 import { drawSeal, drawKeys, KT, type KeysVelocity } from "@/lib/lines";
 import { play, setBed, setSoundOn, isSoundOn } from "@/lib/audio";
@@ -50,7 +51,11 @@ export default function PageShell() {
     sOff: useRef<HTMLButtonElement>(null),
     tDark: useRef<HTMLButtonElement>(null),
     tLight: useRef<HTMLButtonElement>(null),
+    itip: useRef<HTMLDivElement>(null),
   };
+  // the page island's drag / menu placement / tip driver, created inside useGSAP; menu() and the island's
+  // click reach it through this ref (same pattern as updateSealSoundRef below)
+  const islandRef = useRef<PageIslandDriver | null>(null);
 
   const experienceRef = useRef<ExperienceHandle>(null);
   const [soundOnState, setSoundOnState] = useState(false);
@@ -80,10 +85,17 @@ export default function PageShell() {
 
   // ---------- page island menu ----------
   function menu(open: boolean) {
+    // place it before it opens, so the spring grows it out of the island's current spot
+    if (open) islandRef.current?.placeMenu();
     pageIsland.pmenu.current?.classList.toggle("open", open);
     pageIsland.pisl.current?.setAttribute("aria-expanded", String(open));
     if (pageIsland.pisl.current) pageIsland.pisl.current.style.visibility = open ? "hidden" : "visible";
     play(open ? "expand" : "collapse", 0.5);
+  }
+  // a click that is really the end of a drag must not open the menu
+  function onIslandClick() {
+    if (islandRef.current?.clickFromDrag()) return;
+    menu(true);
   }
 
   useGSAP(() => {
@@ -133,6 +145,26 @@ export default function PageShell() {
       document.documentElement.style.setProperty("--navh", navH + "px");
     }
     setNavH();
+
+    // ---------- page island: free drag anywhere, keyboard moves, saved spot, menu placement, one time tip ----------
+    const pageIsl = createPageIsland(
+      { pisl, pmenu, itip: pageIsland.itip.current!, nav: navEl },
+      {
+        play,
+        onDragStart: () => menu(false),
+        viewport: () => ({ w: window.innerWidth, h: window.innerHeight }),
+        now: () => performance.now(),
+        storage: () => window.localStorage,
+      }
+    );
+    islandRef.current = pageIsl;
+    pageIsl.measure();
+    pageIsl.init();
+    pisl.addEventListener("pointerdown", pageIsl.pointerdown);
+    pisl.addEventListener("pointermove", pageIsl.pointermove);
+    pisl.addEventListener("pointerup", pageIsl.pointerup);
+    pisl.addEventListener("pointercancel", pageIsl.pointercancel);
+    pisl.addEventListener("keydown", pageIsl.keydown);
 
     // sample the tray's spring curves into real CSS linear() easings; the cubic-bezier
     // fallbacks already in globals.css cover browsers without linear() support
@@ -332,7 +364,10 @@ export default function PageShell() {
 
       let j: ReturnType<typeof doJourney> | null = null;
       let macTop = 0, gapW = 0, flight = 0;
-      let A: ReturnType<typeof rc> | null = null, P: DOMRect | null = null;
+      let A: ReturnType<typeof rc> | null = null;
+      // the fly-out lands on the island's stored spot and natural size, never its bounding box: while hidden
+      // it is scaled to 0.4. Not a layout read (the size was measured up front).
+      let P: ReturnType<PageIslandDriver["flightTarget"]> | null = null;
 
       if (PIN) {
         gapW = gGap!.offsetWidth;
@@ -341,7 +376,7 @@ export default function PageShell() {
         flight = ss(0.86, 0.97, lapP);
         if (flight > 0 && flight < 1) {
           A = rc(anchor!);
-          P = pageIsland.pisl.current!.getBoundingClientRect();
+          P = pageIsl.flightTarget();
         }
       }
 
@@ -383,16 +418,18 @@ export default function PageShell() {
         const flyer = pageIsland.flyer.current;
         if (A && P && flyer) {
           const e = ease(flight);
-          const d0 = A.w, d1 = P.width || 62;
-          const x = lerp(A.x - d0 / 2, P.left, e);
-          const yy = lerp(A.y - d0 / 2, P.top, e) + Math.sin(Math.PI * e) * -70;
+          const d0 = A.w, d1 = P.size;
+          const x = lerp(A.x - d0 / 2, P.x, e);
+          const yy = lerp(A.y - d0 / 2, P.y, e) + Math.sin(Math.PI * e) * -70;
           const s = lerp(d0, d1, e) / 62;
           flyer.style.display = "flex";
           flyer.style.transform = `translate3d(${x}px,${yy}px,0) scale(${s})`;
         } else if (flyer) {
           flyer.style.display = "none";
         }
-        pageIsland.pisl.current?.classList.toggle("hide", !(flight >= 1 || y > ST.mac!.end));
+        const earned = flight >= 1 || y > ST.mac!.end;
+        pisl.classList.toggle("hide", !earned);
+        pageIsl.setShown(earned);
 
         if (!cur) cur = { ...j };
         const kp = 1 - Math.exp(-dt * 10);
@@ -405,7 +442,8 @@ export default function PageShell() {
         const bob = Math.sin(t * 1.1) * 4 * (1 - ss(ST.mac!.start - 300, ST.mac!.start, y));
         frameStage?.draw({ x: cur.x, y: cur.y + bob, h: cur.h, f: cur.f, o: cur.o });
       } else if (!PIN) {
-        pageIsland.pisl.current?.classList.remove("hide");
+        pisl.classList.remove("hide");
+        pageIsl.setShown(true);
         scene?.write(lapP, 0, now, dt);
         const hr = heroEl!.getBoundingClientRect();
         const g = rc(gGap!);
@@ -443,11 +481,13 @@ export default function PageShell() {
       fitScreen();
       setNavH();
       scene?.measure();
+      pageIsl.resize();
     }
     window.addEventListener("resize", onResize);
 
     document.fonts?.ready.then(() => {
       scene?.measure();
+      pageIsl.resize();
       if (PIN) ScrollTrigger.refresh();
     });
 
@@ -455,6 +495,13 @@ export default function PageShell() {
       document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKeydown);
       window.removeEventListener("resize", onResize);
+      pisl.removeEventListener("pointerdown", pageIsl.pointerdown);
+      pisl.removeEventListener("pointermove", pageIsl.pointermove);
+      pisl.removeEventListener("pointerup", pageIsl.pointerup);
+      pisl.removeEventListener("pointercancel", pageIsl.pointercancel);
+      pisl.removeEventListener("keydown", pageIsl.keydown);
+      pageIsl.destroy();
+      islandRef.current = null;
       anchorHandlers.forEach(({ a, handler }) => a.removeEventListener("click", handler));
       if (PIN) {
         gsap.ticker.remove(tick);
@@ -471,7 +518,7 @@ export default function PageShell() {
       <Nav refs={masthead} onSoundClick={() => applySound(!soundOnState)} />
       <PageIsland
         refs={pageIsland}
-        onToggleMenu={() => menu(true)}
+        onToggleMenu={onIslandClick}
         onSetSound={applySound}
         onSetTheme={pickTheme}
         soundOn={soundOnState}

@@ -23,4 +23,6 @@ export type PageIslandRefs = {
   sOff: RefObject<HTMLButtonElement | null>;
   tDark: RefObject<HTMLButtonElement | null>;
   tLight: RefObject<HTMLButtonElement | null>;
+  /** the one time "Drag me anywhere" tip beside the page island */
+  itip: RefObject<HTMLDivElement | null>;
 };

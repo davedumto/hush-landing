@@ -35,6 +35,11 @@ export default function PageIsland({ refs, onToggleMenu, onSetSound, onSetTheme,
         </span>
       </button>
 
+      {/* one time hint; positioned and shown by the page island driver (lib/pageIslandDriver.ts) */}
+      <div className="itip" id="itip" aria-hidden="true" ref={refs.itip}>
+        Drag me anywhere. Click for the menu.
+      </div>
+
       <div className="pmenu" id="pmenu" role="dialog" aria-label="hush. menu" ref={refs.pmenu}>
         <div className="in">
           <div className="hd">
